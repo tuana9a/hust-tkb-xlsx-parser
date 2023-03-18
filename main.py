@@ -11,9 +11,11 @@ from dataclasses import dataclass
 
 dotenv.load_dotenv()
 
-RABBITMQ_CONNECTION_STRING = os.getenv("RABBITMQ_CONNECTION_STRING")
-PARSE_TKB_XLSX = "parse-tkb-xslx"
-PROCESS_PARSE_TKD_XLSX_RESULT = "process-parse-tkb-xlsx-result"
+
+class Cfg:
+    RABBITMQ_CONNECTION_STRING = os.getenv("RABBITMQ_CONNECTION_STRING")
+    PARSE_TKB_XLSX = "parse-tkb-xslx"
+    PROCESS_PARSE_TKD_XLSX_RESULT = "process-parse-tkb-xlsx-result"
 
 
 @dataclass
@@ -120,20 +122,21 @@ def on_message(ch, method, properties, body):
     classes = Parser().parse(BytesIO(body))
     payload = {"data": list(map(lambda x: vars(x), classes))}
     ch.basic_publish(exchange='',
-                     routing_key=PROCESS_PARSE_TKD_XLSX_RESULT,
+                     routing_key=Cfg.PROCESS_PARSE_TKD_XLSX_RESULT,
                      body=json.dumps(payload))
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
 
 def main():
     connection = pika.BlockingConnection(
-        pika.URLParameters(RABBITMQ_CONNECTION_STRING))
+        pika.URLParameters(Cfg.RABBITMQ_CONNECTION_STRING))
 
     channel = connection.channel()
-    channel.queue_declare(queue=PARSE_TKB_XLSX, durable=True)
-    channel.queue_declare(queue=PROCESS_PARSE_TKD_XLSX_RESULT, durable=True)
+    channel.queue_declare(queue=Cfg.PARSE_TKB_XLSX, durable=True)
+    channel.queue_declare(queue=Cfg.PROCESS_PARSE_TKD_XLSX_RESULT,
+                          durable=True)
     channel.basic_qos(prefetch_count=10)
-    channel.basic_consume(queue=PARSE_TKB_XLSX,
+    channel.basic_consume(queue=Cfg.PARSE_TKB_XLSX,
                           auto_ack=False,
                           on_message_callback=on_message)
 
